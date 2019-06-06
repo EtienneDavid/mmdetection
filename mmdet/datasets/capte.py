@@ -156,6 +156,7 @@ class CapteDataset(XMLDataset):
             img=DC(to_tensor(img), stack=True),
             img_meta=DC(img_meta, cpu_only=True),
             gt_bboxes=DC(to_tensor(gt_bboxes)),
+	)
         if self.proposals is not None:
             data['proposals'] = DC(to_tensor(proposals))
         if self.with_label:
