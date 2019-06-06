@@ -109,7 +109,7 @@ class CapteDataset(XMLDataset):
         ann = self.get_ann_info(idx)
         gt_bboxes = ann['bboxes']
         gt_labels = ann['labels']
-        gt_domain = ann["domains"]
+        
 
 
         if self.with_crowd:
@@ -156,7 +156,6 @@ class CapteDataset(XMLDataset):
             img=DC(to_tensor(img), stack=True),
             img_meta=DC(img_meta, cpu_only=True),
             gt_bboxes=DC(to_tensor(gt_bboxes)),
-            gt_domain=DC(to_tensor(gt_domain)))
         if self.proposals is not None:
             data['proposals'] = DC(to_tensor(proposals))
         if self.with_label:
