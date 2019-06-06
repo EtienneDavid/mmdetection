@@ -6,7 +6,7 @@ from mmcv.parallel import DataContainer as DC
 from torch.utils.data import Dataset
 
 from .transforms import (ImageTransform, BboxTransform, MaskTransform,
-                         SegMapTransform, Numpy2Tensor)
+                         Numpy2Tensor)
 from .utils import to_tensor, random_scale
 from .extra_aug import ExtraAugmentation
 
@@ -40,7 +40,6 @@ class CustomDataset(Dataset):
                  img_prefix,
                  img_scale,
                  img_norm_cfg,
-                 multiscale_mode='value',
                  size_divisor=None,
                  proposal_file=None,
                  num_max_proposals=1000,
@@ -48,9 +47,6 @@ class CustomDataset(Dataset):
                  with_mask=True,
                  with_crowd=True,
                  with_label=True,
-                 with_semantic_seg=False,
-                 seg_prefix=None,
-                 seg_scale_factor=1,
                  extra_aug=None,
                  resize_keep_ratio=True,
                  test_mode=False):
@@ -77,10 +73,6 @@ class CustomDataset(Dataset):
         # normalization configs
         self.img_norm_cfg = img_norm_cfg
 
-        # multi-scale mode (only applicable for multi-scale training)
-        self.multiscale_mode = multiscale_mode
-        assert multiscale_mode in ['value', 'range']
-
         # max proposals per image
         self.num_max_proposals = num_max_proposals
         # flip ratio
@@ -97,12 +89,6 @@ class CustomDataset(Dataset):
         self.with_crowd = with_crowd
         # with label is False for RPN
         self.with_label = with_label
-        # with semantic segmentation (stuff) annotation or not
-        self.with_seg = with_semantic_seg
-        # prefix of semantic segmentation map path
-        self.seg_prefix = seg_prefix
-        # rescale factor for segmentation maps
-        self.seg_scale_factor = seg_scale_factor
         # in test mode or not
         self.test_mode = test_mode
 
@@ -114,7 +100,6 @@ class CustomDataset(Dataset):
             size_divisor=self.size_divisor, **self.img_norm_cfg)
         self.bbox_transform = BboxTransform()
         self.mask_transform = MaskTransform()
-        self.seg_transform = SegMapTransform(self.size_divisor)
         self.numpy2tensor = Numpy2Tensor()
 
         # if use extra augmentation
@@ -197,6 +182,7 @@ class CustomDataset(Dataset):
         ann = self.get_ann_info(idx)
         gt_bboxes = ann['bboxes']
         gt_labels = ann['labels']
+
         if self.with_crowd:
             gt_bboxes_ignore = ann['bboxes_ignore']
 
@@ -211,20 +197,10 @@ class CustomDataset(Dataset):
 
         # apply transforms
         flip = True if np.random.rand() < self.flip_ratio else False
-        # randomly sample a scale
-        img_scale = random_scale(self.img_scales, self.multiscale_mode)
+        img_scale = random_scale(self.img_scales)  # sample a scale
         img, img_shape, pad_shape, scale_factor = self.img_transform(
             img, img_scale, flip, keep_ratio=self.resize_keep_ratio)
         img = img.copy()
-        if self.with_seg:
-            gt_seg = mmcv.imread(
-                osp.join(self.seg_prefix, img_info['file_name'].replace(
-                    'jpg', 'png')),
-                flag='unchanged')
-            gt_seg = self.seg_transform(gt_seg.squeeze(), img_scale, flip)
-            gt_seg = mmcv.imrescale(
-                gt_seg, self.seg_scale_factor, interpolation='nearest')
-            gt_seg = gt_seg[None, ...]
         if self.proposals is not None:
             proposals = self.bbox_transform(proposals, img_shape, scale_factor,
                                             flip)
@@ -259,8 +235,6 @@ class CustomDataset(Dataset):
             data['gt_bboxes_ignore'] = DC(to_tensor(gt_bboxes_ignore))
         if self.with_mask:
             data['gt_masks'] = DC(gt_masks, cpu_only=True)
-        if self.with_seg:
-            data['gt_semantic_seg'] = DC(to_tensor(gt_seg), stack=True)
         return data
 
     def prepare_test_img(self, idx):

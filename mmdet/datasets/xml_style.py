@@ -12,13 +12,14 @@ class XMLDataset(CustomDataset):
     def __init__(self, **kwargs):
         super(XMLDataset, self).__init__(**kwargs)
         self.cat2label = {cat: i + 1 for i, cat in enumerate(self.CLASSES)}
+        print(self.cat2label)
 
     def load_annotations(self, ann_file):
         img_infos = []
         img_ids = mmcv.list_from_file(ann_file)
         for img_id in img_ids:
-            filename = 'JPEGImages/{}.jpg'.format(img_id)
-            xml_path = osp.join(self.img_prefix, 'Annotations',
+            filename = '{}.png'.format(img_id)
+            xml_path = osp.join(self.img_prefix,
                                 '{}.xml'.format(img_id))
             tree = ET.parse(xml_path)
             root = tree.getroot()
@@ -31,7 +32,7 @@ class XMLDataset(CustomDataset):
 
     def get_ann_info(self, idx):
         img_id = self.img_infos[idx]['id']
-        xml_path = osp.join(self.img_prefix, 'Annotations',
+        xml_path = osp.join(self.img_prefix,
                             '{}.xml'.format(img_id))
         tree = ET.parse(xml_path)
         root = tree.getroot()
