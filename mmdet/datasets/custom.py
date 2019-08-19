@@ -48,6 +48,7 @@ class CustomDataset(Dataset):
                  proposal_file=None,
                  num_max_proposals=1000,
                  flip_ratio=0,
+                 rotate_ratio=0,
                  with_mask=True,
                  with_crowd=True,
                  with_label=True,
@@ -90,6 +91,10 @@ class CustomDataset(Dataset):
         # flip ratio
         self.flip_ratio = flip_ratio
         assert flip_ratio >= 0 and flip_ratio <= 1
+
+        self.rotate_ratio = rotate_ratio
+        assert rotate_ratio >= 0 and rotate_ratio <= 1
+
         # padding border to ensure the image size can be divided by
         # size_divisor (used for FPN)
         self.size_divisor = size_divisor
@@ -218,6 +223,8 @@ class CustomDataset(Dataset):
 
         # apply transforms
         flip = True if np.random.rand() < self.flip_ratio else False
+        rotate = True if np.random.rand() < self.rotate_ratio else False
+
         # randomly sample a scale
         img_scale = random_scale(self.img_scales, self.multiscale_mode)
         img, img_shape, pad_shape, scale_factor = self.img_transform(
@@ -234,11 +241,11 @@ class CustomDataset(Dataset):
             gt_seg = gt_seg[None, ...]
         if self.proposals is not None:
             proposals = self.bbox_transform(proposals, img_shape, scale_factor,
-                                            flip)
+                                            flip,rotate)
             proposals = np.hstack([proposals, scores
                                    ]) if scores is not None else proposals
         gt_bboxes = self.bbox_transform(gt_bboxes, img_shape, scale_factor,
-                                        flip)
+                                        flip,rotate)
         if self.with_crowd:
             gt_bboxes_ignore = self.bbox_transform(gt_bboxes_ignore, img_shape,
                                                    scale_factor, flip)
@@ -252,7 +259,8 @@ class CustomDataset(Dataset):
             img_shape=img_shape,
             pad_shape=pad_shape,
             scale_factor=scale_factor,
-            flip=flip)
+            flip=flip,
+            rotate=rotate)
 
         data = dict(
             img=DC(to_tensor(img), stack=True),

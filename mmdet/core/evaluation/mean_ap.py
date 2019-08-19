@@ -359,6 +359,8 @@ def print_map_summary(mean_ap, results, dataset=None):
         label_names = get_classes(dataset)
     else:
         label_names = dataset
+        
+    print(label_names, len(results))
 
     if not isinstance(mean_ap, list):
         mean_ap = [mean_ap]

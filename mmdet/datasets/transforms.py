@@ -28,7 +28,7 @@ class ImageTransform(object):
         self.to_rgb = to_rgb
         self.size_divisor = size_divisor
 
-    def __call__(self, img, scale, flip=False, keep_ratio=True):
+    def __call__(self, img, scale, flip=False, rotate=False, keep_ratio=True):
         if keep_ratio:
             img, scale_factor = mmcv.imrescale(img, scale, return_scale=True)
         else:
@@ -40,6 +40,10 @@ class ImageTransform(object):
         img = mmcv.imnormalize(img, self.mean, self.std, self.to_rgb)
         if flip:
             img = mmcv.imflip(img)
+
+        if rotate:
+            img = mmcv.imrotate(img,90)
+
         if self.size_divisor is not None:
             img = mmcv.impad_to_multiple(img, self.size_divisor)
             pad_shape = img.shape
@@ -47,6 +51,24 @@ class ImageTransform(object):
             pad_shape = img_shape
         img = img.transpose(2, 0, 1)
         return img, img_shape, pad_shape, scale_factor
+
+def bbox_rotate(bboxes, img_shape):
+    """Rotate bboxes 90.
+
+    Args:
+        bboxes(ndarray): shape (..., 4*k)
+        img_shape(tuple): (height, width)
+    """
+    assert bboxes.shape[-1] % 4 == 0
+    w = img_shape[1]
+    rotated = bboxes.copy()
+
+    rotated[..., 0] = w - bboxes[..., 1] - 1
+    rotated[..., 2] = w - bboxes[..., 3] - 1
+    rotated[...,1] = bboxes[..., 0]
+    rotated[...,3] = bboxes[..., 2]
+
+    return rotated
 
 
 def bbox_flip(bboxes, img_shape):
@@ -75,10 +97,15 @@ class BboxTransform(object):
     def __init__(self, max_num_gts=None):
         self.max_num_gts = max_num_gts
 
-    def __call__(self, bboxes, img_shape, scale_factor, flip=False):
+    def __call__(self, bboxes, img_shape, scale_factor, flip=False,rotate=False):
         gt_bboxes = bboxes * scale_factor
         if flip:
             gt_bboxes = bbox_flip(gt_bboxes, img_shape)
+
+        if rotate:
+            gt_bboxes = bbox_rotate(gt_bboxes, img_shape)
+
+
         gt_bboxes[:, 0::2] = np.clip(gt_bboxes[:, 0::2], 0, img_shape[1] - 1)
         gt_bboxes[:, 1::2] = np.clip(gt_bboxes[:, 1::2], 0, img_shape[0] - 1)
         if self.max_num_gts is None:
